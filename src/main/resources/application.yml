@@ -1,0 +1,134 @@
+# OrganLink Backend Configuration
+server:
+  port: 8081
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: organlink-backend
+  
+  # Database Configuration
+  datasource:
+    url: jdbc:mysql://localhost:3306/organlink_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: 12345
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    
+  # File Upload Configuration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      
+  # Mail Configuration (for notifications)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# JWT Configuration
+jwt:
+  secret: OrganLinkSecretKeyForJWTTokenGeneration2024!@#$%^&*()
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-expiration: 604800000 # 7 days in milliseconds
+
+# Blockchain Configuration
+blockchain:
+  ethereum:
+    network-url: https://sepolia.infura.io/v3/6587311a93fe4c34adcef72bd583ea46
+    private-key: 3bd2be9a27a02febd7c8a21f4d73bc9fd5a57d7521b60c78fbe029c10331189d
+    account-address: 0xA2e7c392c0D39E9c7D3bC3669bBb7a2d9Da31e04
+    gas-price: 20000000000
+    gas-limit: 6721975
+  contracts:
+    policy-voting: # Will be set after deployment
+    signature-verification: # Will be set after deployment
+
+# IPFS Configuration
+ipfs:
+  api-url: https://api.pinata.cloud
+  api-key: 9e564471024a3d8f6ab6
+  secret-key: 4f0d029b0cee447b2000ede9616e47282734a2abf0b3a4ed7591aef7c4e66bae
+  jwt-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJiOGYwZDI2MS05NWZiLTQ1ZjktYjg0ZC04YWZiMzliOTgwMWUiLCJlbWFpbCI6InZpZ25lc2h2aWduZXNoMTk3NEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJGUkExIn0seyJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MSwiaWQiOiJOWUMxIn1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiOWU1NjQ0NzEwMjRhM2Q4ZjZhYjYiLCJzY29wZWRLZXlTZWNyZXQiOiI0ZjBkMDI5YjBjZWU0NDdiMjAwMGVkZTk2MTZlNDcyODI3MzRhMmFiZjBiM2E0ZWQ3NTkxYWVmN2M0ZTY2YmFlIiwiZXhwIjoxNzg2NTEyOTQyfQ.SMEFB787wDbetsMTg3dbYQu6v-aSo0PsYjokEbtjPvs
+  gateway-url: https://gateway.pinata.cloud/ipfs/
+
+# AI Configuration
+ai:
+  model:
+    path: src/main/resources/models/
+    training-data-size: 1000
+    policy-count: 15
+  matching:
+    threshold: 0.75
+    max-results: 10
+
+# OCR Configuration
+ocr:
+  tesseract:
+    data-path: ${TESSERACT_DATA_PATH:}
+    language: eng
+  confidence-threshold: 80.0
+
+# CORS Configuration
+cors:
+  allowed-origins: 
+    - http://localhost:3000
+    - http://localhost:8080
+    - https://organlink.com
+    - https://*.organlink.com
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed-headers:
+    - "*"
+  allow-credentials: true
+
+# Management and Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Custom Application Properties
+organlink:
+  admin:
+    default-username: admin
+    default-password: admin123
+  security:
+    password-strength: 8
+    max-login-attempts: 5
+    lockout-duration: 300000 # 5 minutes
+  notifications:
+    email-enabled: false
+    sms-enabled: false
+  file-storage:
+    upload-dir: uploads/
+    max-size: 10485760 # 10MB
+  cache:
+    ttl: 3600 # 1 hour
+    max-entries: 1000
