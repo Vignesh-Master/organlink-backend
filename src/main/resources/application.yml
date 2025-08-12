@@ -74,10 +74,39 @@ ipfs:
 ai:
   model:
     path: src/main/resources/models/
-    training-data-size: 1000
+    training-data-size: 10000
     policy-count: 15
+    ensemble-weights:
+      weka: 0.6
+      deep-learning: 0.4
+    algorithms:
+      primary: RandomForest
+      secondary: MultilayerPerceptron
+      ensemble: Vote
+  datasets:
+    path: src/main/resources/datasets/
+    auto-cleanup: true
+    supported-formats: csv,arff
+    available:
+      - Organ_Transplant.csv
+      - Heart_health.csv
+      - medical_data.csv
+      - Diabetes Classification.csv
+      - Kidney_Organ_SupplyChain_RawDataset.csv
+      - NHS_Organ_Donation.csv
+      - GODT.csv
+      - hospital data analysis.csv
+      - Hospital ER_Data.csv
+  training:
+    cross-validation-folds: 10
+    test-split-ratio: 0.2
+    random-seed: 42
   matching:
     threshold: 0.75
+    confidence-levels:
+      high: 0.8
+      medium: 0.6
+      low: 0.4
     max-results: 10
 
 # OCR Configuration
