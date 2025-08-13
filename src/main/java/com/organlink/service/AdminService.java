@@ -102,6 +102,13 @@ public class AdminService {
         hospital.setHospitalId(hospitalId);
         System.out.println("Generated Hospital ID: " + hospitalId);
 
+        // Generate unique license number if not provided
+        if (hospital.getLicenseNumber() == null || hospital.getLicenseNumber().isEmpty()) {
+            String licenseNumber = generateLicenseNumber();
+            hospital.setLicenseNumber(licenseNumber);
+            System.out.println("Generated License Number: " + licenseNumber);
+        }
+
         // Set default status
         hospital.setStatus(HospitalStatus.ACTIVE);
         hospital.setVerificationStatus(VerificationStatus.PENDING);
@@ -312,6 +319,14 @@ public class AdminService {
         return prefix + String.format("%03d", count);
     }
 
+    private String generateLicenseNumber() {
+        String prefix = "LIC";
+        long count = hospitalRepository.count() + 1;
+        // Add some randomness to avoid duplicates
+        int random = (int) (Math.random() * 1000);
+        return prefix + String.format("%03d", count) + String.format("%03d", random);
+    }
+
     private String generateOrganizationId() {
         String prefix = "ORG";
         long count = organizationRepository.count() + 1;
@@ -337,10 +352,12 @@ public class AdminService {
             User user = new User();
             user.setUsername(username);
             user.setEmail(email);
-            // Use hospital ID as default password for easier login
-            String defaultPassword = hospital.getHospitalId().toLowerCase();
-            user.setPassword(passwordEncoder.encode(defaultPassword));
-            System.out.println("🔑 Default password set to: " + defaultPassword);
+            // Use password from hospital creation form, fallback to hospital ID
+            String password = hospital.getPassword() != null && !hospital.getPassword().isEmpty()
+                ? hospital.getPassword()
+                : hospital.getHospitalId().toLowerCase();
+            user.setPassword(passwordEncoder.encode(password));
+            System.out.println("🔑 Password set for hospital login");
             user.setRole(UserRole.HOSPITAL);
             user.setTenantId(hospital.getHospitalId());
             userRepository.save(user);

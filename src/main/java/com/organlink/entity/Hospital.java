@@ -81,7 +81,10 @@ public class Hospital {
     
     @Column(name = "capacity")
     private Integer capacity;
-    
+
+    @Transient // Don't store password in database, only use for user creation
+    private String password;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private HospitalStatus status = HospitalStatus.ACTIVE;
@@ -190,10 +193,8 @@ public class Hospital {
     public void setPatients(List<Patient> patients) { this.patients = patients; }
 
     // Password management for admin operations
-    public void setPassword(String password) {
-        // This is used by admin for password reset operations
-        // In a real implementation, this would be handled more securely
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 }
 
 // Enums moved to separate files

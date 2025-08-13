@@ -11,10 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 import java.util.Optional;
@@ -53,18 +55,19 @@ public class HospitalController {
     // Donor Management Endpoints
 
     /**
-     * Register new donor
+     * Register new donor with signature upload
      */
-    @PostMapping("/donors")
+    @PostMapping(value = "/donors", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Donor>> registerDonor(
-            @Valid @RequestBody Donor donor, 
+            @RequestPart("donor") @Valid Donor donor,
+            @RequestPart("signatureImage") MultipartFile signatureImage,
+            @RequestParam("signatureName") String signatureName,
             Authentication authentication) {
         try {
             String hospitalId = getHospitalIdFromAuth(authentication);
-            Donor registeredDonor = hospitalService.registerDonor(donor, hospitalId);
+            Donor registeredDonor = hospitalService.registerDonor(donor, hospitalId, signatureImage, signatureName);
             
-            // Record on blockchain asynchronously
-            blockchainService.recordDonorRegistration(registeredDonor);
+            // Blockchain recording is now handled within HospitalService
             
             return ResponseEntity.ok(ApiResponse.success("Donor registered successfully", registeredDonor));
         } catch (Exception e) {
@@ -134,18 +137,19 @@ public class HospitalController {
     // Patient Management Endpoints
 
     /**
-     * Register new patient
+     * Register new patient with signature upload
      */
-    @PostMapping("/patients")
+    @PostMapping(value = "/patients", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Patient>> registerPatient(
-            @Valid @RequestBody Patient patient, 
+            @RequestPart("patient") @Valid Patient patient,
+            @RequestPart("signatureImage") MultipartFile signatureImage,
+            @RequestParam("signatureName") String signatureName,
             Authentication authentication) {
         try {
             String hospitalId = getHospitalIdFromAuth(authentication);
-            Patient registeredPatient = hospitalService.registerPatient(patient, hospitalId);
+            Patient registeredPatient = hospitalService.registerPatient(patient, hospitalId, signatureImage, signatureName);
             
-            // Record on blockchain asynchronously
-            blockchainService.recordPatientRegistration(registeredPatient);
+            // Blockchain recording is now handled within HospitalService
             
             return ResponseEntity.ok(ApiResponse.success("Patient registered successfully", registeredPatient));
         } catch (Exception e) {

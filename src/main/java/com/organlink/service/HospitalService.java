@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -32,6 +33,19 @@ public class HospitalService {
 
     @Autowired
     private MatchRepository matchRepository;
+
+    @Autowired
+    private SignatureRecordRepository signatureRecordRepository;
+
+    @Autowired
+    private OcrService ocrService;
+
+    @Autowired
+    private IpfsService ipfsService;
+
+    @Autowired
+    private BlockchainService blockchainService;
+
 
     /**
      * Get hospital dashboard statistics
@@ -79,31 +93,91 @@ public class HospitalService {
     }
 
     /**
-     * Register new donor
+     * Register new donor with signature verification
      */
-    public Donor registerDonor(Donor donor, String hospitalId) {
+    public Donor registerDonor(Donor donor, String hospitalId, MultipartFile signatureImage, String signatureName) throws Exception {
+        // 1. Verify Signature
+        if (!ocrService.verifySignature(signatureImage, signatureName)) {
+            throw new Exception("Signature verification failed. The name on the signature does not match the provided name.");
+        }
+
+        // 2. Upload to IPFS
+        String ipfsHash = ipfsService.uploadFile(signatureImage);
+        donor.setConsentIpfsHash(ipfsHash); // Assuming Donor entity has this field
+
+        // 3. Save Donor and get ID
         Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(hospitalId);
         if (hospitalOpt.isEmpty()) {
             throw new RuntimeException("Hospital not found: " + hospitalId);
         }
-
         Hospital hospital = hospitalOpt.get();
         
-        // Generate unique donor ID
         donor.setDonorId(generateDonorId(hospitalId));
         donor.setHospital(hospital);
         donor.setStatus(DonorStatus.REGISTERED);
         donor.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
         
-        // Calculate BMI if height and weight are provided
         if (donor.getHeight() != null && donor.getWeight() != null) {
             double heightInMeters = donor.getHeight() / 100.0;
             double bmi = donor.getWeight() / (heightInMeters * heightInMeters);
             donor.setBmi(bmi);
         }
         
-        return donorRepository.save(donor);
+        Donor savedDonor = donorRepository.save(donor);
+
+        // 4. Create Signature Record
+        createSignatureRecord(ipfsHash, "DONOR_CONSENT", savedDonor.getId(), "DONOR", hospital);
+
+        // 5. Asynchronously record on blockchain
+        blockchainService.recordDonorRegistration(savedDonor);
+
+        return savedDonor;
     }
+
+    /**
+     * Register new patient with signature verification
+     */
+    public Patient registerPatient(Patient patient, String hospitalId, MultipartFile signatureImage, String signatureName) throws Exception {
+        // 1. Verify Signature
+        if (!ocrService.verifySignature(signatureImage, signatureName)) {
+            throw new Exception("Signature verification failed. The name on the signature does not match the provided name.");
+        }
+
+        // 2. Upload to IPFS
+        String ipfsHash = ipfsService.uploadFile(signatureImage);
+        patient.setConsentIpfsHash(ipfsHash); // Assuming Patient entity has this field
+
+        // 3. Save Patient and get ID
+        Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(hospitalId);
+        if (hospitalOpt.isEmpty()) {
+            throw new RuntimeException("Hospital not found: " + hospitalId);
+        }
+        Hospital hospital = hospitalOpt.get();
+
+        patient.setPatientId(generatePatientId(hospitalId));
+        patient.setHospital(hospital);
+        patient.setStatus(PatientStatus.REGISTERED);
+        patient.setWaitingListDate(LocalDate.now());
+
+        if (patient.getHeight() != null && patient.getWeight() != null) {
+            double heightInMeters = patient.getHeight() / 100.0;
+            double bmi = patient.getWeight() / (heightInMeters * heightInMeters);
+            patient.setBmi(bmi);
+        }
+
+        patient.setPriorityScore(calculatePriorityScore(patient));
+        
+        Patient savedPatient = patientRepository.save(patient);
+
+        // 4. Create Signature Record
+        createSignatureRecord(ipfsHash, "PATIENT_CONSENT", savedPatient.getId(), "PATIENT", hospital);
+
+        // 5. Asynchronously record on blockchain
+        blockchainService.recordPatientRegistration(savedPatient);
+
+        return savedPatient;
+    }
+
 
     /**
      * Get donors for hospital with pagination
@@ -171,36 +245,6 @@ public class HospitalService {
         }
         
         return donorRepository.save(donor);
-    }
-
-    /**
-     * Register new patient
-     */
-    public Patient registerPatient(Patient patient, String hospitalId) {
-        Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(hospitalId);
-        if (hospitalOpt.isEmpty()) {
-            throw new RuntimeException("Hospital not found: " + hospitalId);
-        }
-
-        Hospital hospital = hospitalOpt.get();
-        
-        // Generate unique patient ID
-        patient.setPatientId(generatePatientId(hospitalId));
-        patient.setHospital(hospital);
-        patient.setStatus(PatientStatus.REGISTERED);
-        patient.setWaitingListDate(LocalDate.now());
-        
-        // Calculate BMI if height and weight are provided
-        if (patient.getHeight() != null && patient.getWeight() != null) {
-            double heightInMeters = patient.getHeight() / 100.0;
-            double bmi = patient.getWeight() / (heightInMeters * heightInMeters);
-            patient.setBmi(bmi);
-        }
-        
-        // Calculate initial priority score based on urgency and waiting time
-        patient.setPriorityScore(calculatePriorityScore(patient));
-        
-        return patientRepository.save(patient);
     }
 
     /**
@@ -291,12 +335,14 @@ public class HospitalService {
         double score = 0.0;
         
         // Urgency level weight
-        switch (patient.getUrgencyLevel()) {
-            case EMERGENCY -> score += 100;
-            case CRITICAL -> score += 80;
-            case HIGH -> score += 60;
-            case MEDIUM -> score += 40;
-            case LOW -> score += 20;
+        if (patient.getUrgencyLevel() != null) {
+            switch (patient.getUrgencyLevel()) {
+                case EMERGENCY -> score += 100;
+                case CRITICAL -> score += 80;
+                case HIGH -> score += 60;
+                case MEDIUM -> score += 40;
+                case LOW -> score += 20;
+            }
         }
         
         // Waiting time weight (days waiting)
@@ -315,5 +361,16 @@ public class HospitalService {
         }
         
         return score;
+    }
+    
+    private void createSignatureRecord(String ipfsHash, String docType, Long entityId, String entityType, Hospital hospital) {
+        SignatureRecord record = new SignatureRecord();
+        record.setIpfsHash(ipfsHash);
+        record.setDocumentType(docType);
+        record.setEntityId(entityId);
+        record.setEntityType(entityType);
+        record.setUploadedBy(hospital);
+        // The blockchainTxHash will be set later by an async process
+        signatureRecordRepository.save(record);
     }
 }
