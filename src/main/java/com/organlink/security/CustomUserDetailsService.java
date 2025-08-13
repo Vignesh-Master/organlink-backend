@@ -34,15 +34,28 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     public UserDetails loadUserByUsernameAndTenant(String username, String tenantId) throws UsernameNotFoundException {
+        System.out.println("🔍 CustomUserDetailsService: Loading user");
+        System.out.println("Username: " + username);
+        System.out.println("TenantId: " + tenantId);
+
         User user;
         if (tenantId != null) {
+            System.out.println("🔍 Searching for user with username AND tenantId...");
             user = userRepository.findByUsernameAndTenantId(username, tenantId)
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username + " in tenant: " + tenantId));
+                    .orElseThrow(() -> {
+                        System.out.println("❌ User not found with username: " + username + " and tenantId: " + tenantId);
+                        return new UsernameNotFoundException("User not found: " + username + " in tenant: " + tenantId);
+                    });
         } else {
+            System.out.println("🔍 Searching for user with username only...");
             user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+                    .orElseThrow(() -> {
+                        System.out.println("❌ User not found with username: " + username);
+                        return new UsernameNotFoundException("User not found: " + username);
+                    });
         }
 
+        System.out.println("✅ User found: " + user.getUsername() + " (Role: " + user.getRole() + ", TenantId: " + user.getTenantId() + ")");
         return new CustomUserPrincipal(user);
     }
 

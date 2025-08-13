@@ -29,9 +29,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtUtil jwtUtil;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                   FilterChain chain) throws ServletException, IOException {
-        
+
+        // Skip JWT processing for public endpoints
+        String requestPath = request.getRequestURI();
+        if (isPublicEndpoint(requestPath)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         final String requestTokenHeader = request.getHeader("Authorization");
 
         String username = null;
@@ -47,8 +54,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } catch (Exception e) {
                 logger.error("JWT Token has expired or is invalid");
             }
-        } else {
-            logger.warn("JWT Token does not begin with Bearer String");
         }
 
         // Once we get the token validate it
@@ -57,17 +62,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // If token is valid configure Spring Security to manually set authentication
             if (jwtUtil.validateToken(jwtToken, userDetails)) {
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = 
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
                     new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
                 usernamePasswordAuthenticationToken
                     .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                
+
                 // After setting the Authentication in the context, we specify
                 // that the current user is authenticated. So it passes the Spring Security Configurations successfully.
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Check if the endpoint is public and should skip JWT processing
+     */
+    private boolean isPublicEndpoint(String requestPath) {
+        return requestPath.equals("/") ||
+               requestPath.startsWith("/api/v1/health") ||
+               requestPath.startsWith("/api/v1/info") ||
+               requestPath.startsWith("/swagger-ui") ||
+               requestPath.startsWith("/v3/api-docs") ||
+               requestPath.startsWith("/swagger-resources") ||
+               requestPath.equals("/api/v1/admin/login") ||
+               requestPath.equals("/api/v1/hospital/login") ||
+               requestPath.equals("/api/v1/organization/login") ||
+               requestPath.startsWith("/api/v1/locations/") ||
+               requestPath.startsWith("/api/v1/hospital/cities-by-state") ||
+               requestPath.startsWith("/api/v1/hospital/hospitals-by-city");
     }
 }

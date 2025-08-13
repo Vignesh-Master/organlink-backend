@@ -122,12 +122,10 @@ public class User {
     public boolean isActive() {
         return status == UserStatus.ACTIVE && !isAccountLocked();
     }
+
+    public void setActive(boolean active) {
+        this.status = active ? UserStatus.ACTIVE : UserStatus.INACTIVE;
+    }
 }
 
-enum UserRole {
-    ADMIN, HOSPITAL, ORGANIZATION
-}
-
-enum UserStatus {
-    ACTIVE, INACTIVE, SUSPENDED, DELETED
-}
+// Enums moved to separate files

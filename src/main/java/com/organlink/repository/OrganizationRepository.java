@@ -50,4 +50,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
     
     @Query("SELECT SUM(o.votingPower) FROM Organization o WHERE o.status = 'ACTIVE'")
     Long getTotalVotingPower();
+
+    Page<Organization> findByOrganizationNameContainingIgnoreCaseOrOrganizationIdContainingIgnoreCase(
+            String organizationName, String organizationId, Pageable pageable);
 }

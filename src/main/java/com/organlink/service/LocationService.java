@@ -5,6 +5,7 @@ import com.organlink.repository.HospitalRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -21,28 +22,65 @@ public class LocationService {
     private HospitalRepository hospitalRepository;
 
     /**
-     * Get all countries
+     * Get all countries from hospitals in database
      */
     public List<Map<String, String>> getCountries() {
-        return Arrays.asList(
-            Map.of("id", "US", "name", "United States"),
-            Map.of("id", "CA", "name", "Canada"),
-            Map.of("id", "UK", "name", "United Kingdom"),
-            Map.of("id", "IN", "name", "India"),
-            Map.of("id", "AU", "name", "Australia"),
-            Map.of("id", "DE", "name", "Germany"),
-            Map.of("id", "FR", "name", "France"),
-            Map.of("id", "JP", "name", "Japan"),
-            Map.of("id", "BR", "name", "Brazil"),
-            Map.of("id", "MX", "name", "Mexico")
-        );
+        System.out.println("🌍 Fetching countries from database...");
+        List<String> dbCountries = hospitalRepository.findDistinctCountries();
+        System.out.println("Found " + dbCountries.size() + " countries in database: " + dbCountries);
+
+        List<Map<String, String>> countries = new ArrayList<>();
+        for (String countryName : dbCountries) {
+            String countryId = countryName.toUpperCase().replaceAll("\\s+", "_");
+            countries.add(Map.of("id", countryId, "name", countryName));
+        }
+
+        // If no countries in database, return default
+        if (countries.isEmpty()) {
+            System.out.println("⚠️ No countries found in database, returning defaults");
+            return Arrays.asList(
+                Map.of("id", "INDIA", "name", "India"),
+                Map.of("id", "US", "name", "United States")
+            );
+        }
+
+        return countries;
     }
 
     /**
-     * Get states by country
+     * Get states by country from hospitals in database
      */
     public List<Map<String, String>> getStatesByCountry(String countryId) {
+        System.out.println("🏛️ Fetching states for country: " + countryId);
+
+        // Convert countryId back to country name for database lookup
+        String countryName = countryId.replaceAll("_", " ");
+        List<String> dbStates = hospitalRepository.findDistinctStatesByCountry(countryName);
+        System.out.println("Found " + dbStates.size() + " states in database: " + dbStates);
+
+        List<Map<String, String>> states = new ArrayList<>();
+        for (String stateName : dbStates) {
+            String stateId = stateName.toUpperCase().replaceAll("\\s+", "_");
+            states.add(Map.of("id", stateId, "name", stateName, "countryId", countryId));
+        }
+
+        // If no states found, return fallback based on country
+        if (states.isEmpty()) {
+            System.out.println("⚠️ No states found in database for " + countryName + ", returning fallback");
+            return getFallbackStates(countryId);
+        }
+
+        return states;
+    }
+
+    private List<Map<String, String>> getFallbackStates(String countryId) {
         return switch (countryId.toUpperCase()) {
+            case "INDIA" -> Arrays.asList(
+                Map.of("id", "TAMIL_NADU", "name", "Tamil Nadu", "countryId", countryId),
+                Map.of("id", "KARNATAKA", "name", "Karnataka", "countryId", countryId),
+                Map.of("id", "MAHARASHTRA", "name", "Maharashtra", "countryId", countryId),
+                Map.of("id", "DELHI", "name", "Delhi", "countryId", countryId)
+            );
             case "US" -> Arrays.asList(
                 Map.of("id", "AL", "name", "Alabama", "countryId", "US"),
                 Map.of("id", "AK", "name", "Alaska", "countryId", "US"),
@@ -147,38 +185,89 @@ public class LocationService {
     }
 
     /**
-     * Get cities by state
+     * Get cities by state from hospitals in database
      */
     public List<String> getCitiesByState(String stateId) {
-        return switch (stateId.toUpperCase()) {
-            case "CA" -> Arrays.asList("Los Angeles", "San Francisco", "San Diego", "Sacramento", "San Jose", "Fresno", "Long Beach", "Oakland", "Bakersfield", "Anaheim");
-            case "NY" -> Arrays.asList("New York", "Buffalo", "Rochester", "Yonkers", "Syracuse", "Albany", "New Rochelle", "Mount Vernon", "Schenectady", "Utica");
-            case "TX" -> Arrays.asList("Houston", "San Antonio", "Dallas", "Austin", "Fort Worth", "El Paso", "Arlington", "Corpus Christi", "Plano", "Laredo");
-            case "FL" -> Arrays.asList("Jacksonville", "Miami", "Tampa", "Orlando", "St. Petersburg", "Hialeah", "Tallahassee", "Fort Lauderdale", "Port St. Lucie", "Cape Coral");
-            case "IL" -> Arrays.asList("Chicago", "Aurora", "Rockford", "Joliet", "Naperville", "Springfield", "Peoria", "Elgin", "Waukegan", "Cicero");
-            case "ON" -> Arrays.asList("Toronto", "Ottawa", "Mississauga", "Brampton", "Hamilton", "London", "Markham", "Vaughan", "Kitchener", "Windsor");
-            case "BC" -> Arrays.asList("Vancouver", "Surrey", "Burnaby", "Richmond", "Abbotsford", "Coquitlam", "Kelowna", "Saanich", "Delta", "Langley");
-            case "MH" -> Arrays.asList("Mumbai", "Pune", "Nagpur", "Thane", "Nashik", "Aurangabad", "Solapur", "Amravati", "Kolhapur", "Sangli");
-            case "KA" -> Arrays.asList("Bangalore", "Mysore", "Hubli", "Mangalore", "Belgaum", "Gulbarga", "Davanagere", "Bellary", "Bijapur", "Shimoga");
-            case "TN" -> Arrays.asList("Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Erode", "Vellore", "Thoothukudi", "Dindigul");
-            default -> Arrays.asList("City 1", "City 2", "City 3", "City 4", "City 5");
-        };
+        System.out.println("🏙️ Fetching cities for state: " + stateId);
+
+        // Convert stateId back to state name for database lookup
+        String stateName = stateId.replaceAll("_", " ");
+        List<String> dbCities = hospitalRepository.findDistinctCitiesByState(stateName);
+
+        // Also try with the original stateId in case some hospitals were saved with state codes
+        if (dbCities.isEmpty()) {
+            dbCities = hospitalRepository.findDistinctCitiesByState(stateId);
+        }
+
+        System.out.println("Found " + dbCities.size() + " cities in database for state: " + stateName);
+
+        // If no cities found, return message
+        if (dbCities.isEmpty()) {
+            return Arrays.asList("No cities available for " + stateName);
+        }
+
+        return dbCities;
     }
 
     /**
      * Get hospitals by city and state
      */
     public List<Hospital> getHospitalsByCity(String city, String stateId) {
-        // First try to get from database
-        List<Hospital> hospitalsFromDb = hospitalRepository.findByCityAndState(city, stateId);
-        
+        System.out.println("🔍 LocationService: Looking for hospitals");
+        System.out.println("City: " + city);
+        System.out.println("StateId: " + stateId);
+
+        // Convert state ID to full state name for database lookup
+        String stateName = getStateNameById(stateId);
+        System.out.println("Converted to state name: " + stateName);
+
+        // First try to get from database using full state name
+        List<Hospital> hospitalsFromDb = hospitalRepository.findByCityAndState(city, stateName);
+        System.out.println("Found " + hospitalsFromDb.size() + " hospitals in database");
+
         if (!hospitalsFromDb.isEmpty()) {
             return hospitalsFromDb;
         }
-        
+
+        // Also try with the original stateId in case some hospitals were saved with state codes
+        List<Hospital> hospitalsFromDbWithCode = hospitalRepository.findByCityAndState(city, stateId);
+        System.out.println("Found " + hospitalsFromDbWithCode.size() + " hospitals with state code");
+
+        if (!hospitalsFromDbWithCode.isEmpty()) {
+            return hospitalsFromDbWithCode;
+        }
+
         // If no hospitals in database, return empty list
-        // In a real system, you might want to return some default hospitals
         return Arrays.asList();
+    }
+
+    /**
+     * Convert state ID to full state name
+     */
+    private String getStateNameById(String stateId) {
+        return switch (stateId.toUpperCase()) {
+            case "CA" -> "California";
+            case "NY" -> "New York";
+            case "TX" -> "Texas";
+            case "FL" -> "Florida";
+            case "IL" -> "Illinois";
+            case "PA" -> "Pennsylvania";
+            case "OH" -> "Ohio";
+            case "GA" -> "Georgia";
+            case "NC" -> "North Carolina";
+            case "MI" -> "Michigan";
+            case "TN" -> "Tamil Nadu";
+            case "KA" -> "Karnataka";
+            case "MH" -> "Maharashtra";
+            case "DL" -> "Delhi";
+            case "WB" -> "West Bengal";
+            case "RJ" -> "Rajasthan";
+            case "UP" -> "Uttar Pradesh";
+            case "GJ" -> "Gujarat";
+            case "AP" -> "Andhra Pradesh";
+            case "KL" -> "Kerala";
+            default -> stateId; // Return as-is if not found
+        };
     }
 
     /**

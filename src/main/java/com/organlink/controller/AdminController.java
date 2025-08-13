@@ -1,8 +1,7 @@
 package com.organlink.controller;
 
 import com.organlink.dto.ApiResponse;
-import com.organlink.entity.Hospital;
-import com.organlink.entity.Organization;
+import com.organlink.entity.*;
 import com.organlink.service.AdminService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +21,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/v1/admin")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8080"})
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
@@ -86,9 +85,20 @@ public class AdminController {
     @PostMapping("/hospitals")
     public ResponseEntity<ApiResponse<Hospital>> createHospital(@Valid @RequestBody Hospital hospital) {
         try {
+            System.out.println("🏥 Hospital creation request received:");
+            System.out.println("Hospital Name: " + hospital.getHospitalName());
+            System.out.println("Email: " + hospital.getEmail());
+            System.out.println("City: " + hospital.getCity());
+            System.out.println("State: " + hospital.getState());
+
             Hospital createdHospital = adminService.createHospital(hospital);
+
+            System.out.println("✅ Hospital created successfully with ID: " + createdHospital.getHospitalId());
+
             return ResponseEntity.ok(ApiResponse.success("Hospital created successfully", createdHospital));
         } catch (Exception e) {
+            System.out.println("❌ Hospital creation failed: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to create hospital", e.getMessage()));
         }
@@ -121,6 +131,59 @@ public class AdminController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to delete hospital", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get hospital by hospital ID (for viewing details)
+     */
+    @GetMapping("/hospitals/view/{hospitalId}")
+    public ResponseEntity<ApiResponse<Hospital>> getHospitalByHospitalId(@PathVariable String hospitalId) {
+        try {
+            Optional<Hospital> hospital = adminService.getHospitalByHospitalId(hospitalId);
+            if (hospital.isPresent()) {
+                return ResponseEntity.ok(ApiResponse.success("Hospital details retrieved", hospital.get()));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to retrieve hospital details", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update hospital status
+     */
+    @PatchMapping("/hospitals/{id}/status")
+    public ResponseEntity<ApiResponse<Hospital>> updateHospitalStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> statusUpdate) {
+        try {
+            HospitalStatus status = HospitalStatus.valueOf(statusUpdate.get("status"));
+            Hospital updatedHospital = adminService.updateHospitalStatus(id, status);
+            return ResponseEntity.ok(ApiResponse.success("Hospital status updated", updatedHospital));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update hospital status", e.getMessage()));
+        }
+    }
+
+    /**
+     * Search hospitals
+     */
+    @GetMapping("/hospitals/search")
+    public ResponseEntity<ApiResponse<Page<Hospital>>> searchHospitals(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Hospital> hospitals = adminService.searchHospitals(q, pageable);
+            return ResponseEntity.ok(ApiResponse.success("Hospital search results", hospitals));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to search hospitals", e.getMessage()));
         }
     }
 
@@ -202,6 +265,59 @@ public class AdminController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to delete organization", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get organization by organization ID (for viewing details)
+     */
+    @GetMapping("/organizations/view/{organizationId}")
+    public ResponseEntity<ApiResponse<Organization>> getOrganizationByOrganizationId(@PathVariable String organizationId) {
+        try {
+            Optional<Organization> organization = adminService.getOrganizationByOrganizationId(organizationId);
+            if (organization.isPresent()) {
+                return ResponseEntity.ok(ApiResponse.success("Organization details retrieved", organization.get()));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to retrieve organization details", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update organization status
+     */
+    @PatchMapping("/organizations/{id}/status")
+    public ResponseEntity<ApiResponse<Organization>> updateOrganizationStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> statusUpdate) {
+        try {
+            OrganizationStatus status = OrganizationStatus.valueOf(statusUpdate.get("status"));
+            Organization updatedOrganization = adminService.updateOrganizationStatus(id, status);
+            return ResponseEntity.ok(ApiResponse.success("Organization status updated", updatedOrganization));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update organization status", e.getMessage()));
+        }
+    }
+
+    /**
+     * Search organizations
+     */
+    @GetMapping("/organizations/search")
+    public ResponseEntity<ApiResponse<Page<Organization>>> searchOrganizations(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Organization> organizations = adminService.searchOrganizations(q, pageable);
+            return ResponseEntity.ok(ApiResponse.success("Organization search results", organizations));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to search organizations", e.getMessage()));
         }
     }
 }

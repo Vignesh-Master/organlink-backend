@@ -209,13 +209,4 @@ public class Policy {
     }
 }
 
-enum PolicyStatus {
-    DRAFT,
-    PENDING,
-    VOTING,
-    APPROVED,
-    REJECTED,
-    IMPLEMENTED,
-    EXPIRED,
-    CANCELLED
-}
+// Enums moved to separate files

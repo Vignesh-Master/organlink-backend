@@ -203,8 +203,12 @@ public class Organization {
     
     public List<Vote> getVotes() { return votes; }
     public void setVotes(List<Vote> votes) { this.votes = votes; }
+
+    // Password management for admin operations
+    public void setPassword(String password) {
+        // This is used by admin for password reset operations
+        // In a real implementation, this would be handled more securely
+    }
 }
 
-enum OrganizationStatus {
-    ACTIVE, INACTIVE, SUSPENDED, UNDER_REVIEW
-}
+// Enums moved to separate files

@@ -77,11 +77,16 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/organization/login").permitAll()
                 .requestMatchers("/api/v1/auth/validate").permitAll()
                 
+                // Login endpoints (must be before role-based rules)
+                .requestMatchers("/api/v1/admin/login").permitAll()
+                .requestMatchers("/api/v1/hospital/login").permitAll()
+                .requestMatchers("/api/v1/organization/login").permitAll()
+
                 // Location endpoints (public for login forms)
                 .requestMatchers("/api/v1/locations/**").permitAll()
                 .requestMatchers("/api/v1/hospital/cities-by-state").permitAll()
                 .requestMatchers("/api/v1/hospital/hospitals-by-city").permitAll()
-                
+
                 // Admin endpoints
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 
@@ -116,6 +121,8 @@ public class SecurityConfig {
         // Allow specific origins
         configuration.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:3002",
             "http://localhost:8080",
             "https://organlink.com",
             "https://*.organlink.com"

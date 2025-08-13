@@ -102,23 +102,38 @@ public class AuthService {
      */
     public LoginResponse authenticateHospital(LoginRequest.HospitalLoginRequest request) {
         try {
+            System.out.println("🏥 Hospital login attempt:");
+            System.out.println("Hospital ID: " + request.getHospitalId());
+            System.out.println("User ID: " + request.getUserId());
+            System.out.println("Password: " + request.getPassword());
+
             // Find hospital
             Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(request.getHospitalId());
             if (hospitalOpt.isEmpty()) {
+                System.out.println("❌ Hospital not found: " + request.getHospitalId());
                 throw new BadCredentialsException("Hospital not found");
             }
 
             Hospital hospital = hospitalOpt.get();
+            System.out.println("✅ Hospital found: " + hospital.getHospitalName());
 
             // Authenticate user with tenant context
+            System.out.println("🔍 Looking for user: " + request.getUserId() + " with tenant: " + request.getHospitalId());
             UserDetails userDetails = userDetailsService.loadUserByUsernameAndTenant(
                 request.getUserId(), request.getHospitalId()
             );
+            System.out.println("✅ User found: " + userDetails.getUsername());
 
             // Verify password
+            System.out.println("🔐 Verifying password...");
+            System.out.println("Provided password: " + request.getPassword());
+            System.out.println("Stored password hash: " + userDetails.getPassword());
+
             if (!passwordEncoder.matches(request.getPassword(), userDetails.getPassword())) {
+                System.out.println("❌ Password verification failed");
                 throw new BadCredentialsException("Invalid credentials");
             }
+            System.out.println("✅ Password verified successfully");
 
             CustomUserDetailsService.CustomUserPrincipal userPrincipal = 
                 (CustomUserDetailsService.CustomUserPrincipal) userDetails;

@@ -324,14 +324,4 @@ public class Donor {
     }
 }
 
-enum Gender {
-    MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
-}
-
-enum DonorStatus {
-    REGISTERED, ACTIVE, INACTIVE, MATCHED, DONATED, DECEASED, SUSPENDED
-}
-
-enum AvailabilityStatus {
-    AVAILABLE, TEMPORARILY_UNAVAILABLE, MATCHED, NOT_AVAILABLE
-}
+// Enums moved to separate files

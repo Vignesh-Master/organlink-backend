@@ -352,10 +352,4 @@ public class Patient {
     }
 }
 
-enum UrgencyLevel {
-    LOW, MEDIUM, HIGH, CRITICAL, EMERGENCY
-}
-
-enum PatientStatus {
-    REGISTERED, ACTIVE, WAITING, MATCHED, TRANSPLANTED, DECEASED, SUSPENDED, REMOVED
-}
+// Enums moved to separate files

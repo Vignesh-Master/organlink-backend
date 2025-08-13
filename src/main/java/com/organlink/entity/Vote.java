@@ -90,6 +90,4 @@ public class Vote {
     public void setOrganization(Organization organization) { this.organization = organization; }
 }
 
-enum VoteType {
-    FOR, AGAINST, ABSTAIN
-}
+// Enums moved to separate files

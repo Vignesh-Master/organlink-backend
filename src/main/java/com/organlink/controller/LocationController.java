@@ -16,7 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8080"})
 public class LocationController {
 
     @Autowired
@@ -84,19 +84,26 @@ public class LocationController {
             @RequestParam String city,
             @RequestParam String stateId) {
         try {
+            System.out.println("🏥 Hospital lookup request:");
+            System.out.println("City: " + city);
+            System.out.println("StateId: " + stateId);
+
             if (city == null || city.trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("City is required", "city parameter is missing"));
             }
-            
+
             if (stateId == null || stateId.trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("State ID is required", "stateId parameter is missing"));
             }
-            
+
             List<Hospital> hospitals = locationService.getHospitalsByCity(city, stateId);
+            System.out.println("Found " + hospitals.size() + " hospitals");
+
             return ResponseEntity.ok(ApiResponse.success("Hospitals retrieved", hospitals));
         } catch (Exception e) {
+            System.out.println("❌ Hospital lookup failed: " + e.getMessage());
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to retrieve hospitals", e.getMessage()));
         }

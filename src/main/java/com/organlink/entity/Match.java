@@ -167,11 +167,4 @@ public class Match {
     }
 }
 
-enum MatchStatus {
-    PENDING,
-    ACCEPTED,
-    REJECTED,
-    EXPIRED,
-    COMPLETED,
-    CANCELLED
-}
+// Enums moved to separate files

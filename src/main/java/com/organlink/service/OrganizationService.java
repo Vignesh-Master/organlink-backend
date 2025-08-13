@@ -53,8 +53,8 @@ public class OrganizationService {
         
         // Voting statistics
         long totalVotesFor = voteRepository.findByOrganizationId(organization.getId()).stream()
-                .mapToLong(votes -> votes.stream().filter(v -> v.getVoteType() == VoteType.FOR).count())
-                .sum();
+                .filter(vote -> vote.getVoteType() == VoteType.FOR)
+                .count();
         long totalVotes = voteRepository.findByOrganizationId(organization.getId()).size();
         double approvalRate = totalVotes > 0 ? (double) totalVotesFor / totalVotes * 100 : 0;
         stats.put("approvalRate", Math.round(approvalRate));

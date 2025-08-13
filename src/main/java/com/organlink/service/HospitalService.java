@@ -48,22 +48,32 @@ public class HospitalService {
         // Donor statistics
         stats.put("totalDonors", donorRepository.countByHospitalId(hospital.getId()));
         stats.put("activeDonors", donorRepository.findByHospitalId(hospital.getId()).stream()
-                .mapToLong(donors -> donors.stream().filter(d -> d.getStatus() == DonorStatus.ACTIVE).count())
-                .sum());
+                .filter(donor -> donor.getStatus() == DonorStatus.ACTIVE)
+                .count());
         
         // Patient statistics
         stats.put("totalPatients", patientRepository.countByHospitalId(hospital.getId()));
         stats.put("waitingPatients", patientRepository.findByHospitalId(hospital.getId()).stream()
-                .mapToLong(patients -> patients.stream().filter(p -> p.getStatus() == PatientStatus.WAITING).count())
-                .sum());
+                .filter(patient -> patient.getStatus() == PatientStatus.WAITING)
+                .count());
         
         // Match statistics
         stats.put("activeMatches", matchRepository.countByHospitalId(hospital.getId()));
         stats.put("successfulTransplants", matchRepository.countCompletedByHospitalId(hospital.getId()));
         
         // Recent activity
-        stats.put("recentDonorRegistrations", donorRepository.findRecentByHospitalId(hospital.getId(), 5));
-        stats.put("recentPatientRegistrations", patientRepository.findRecentByHospitalId(hospital.getId(), 5));
+        // Get recent registrations (simplified)
+        List<Donor> recentDonors = donorRepository.findByHospitalId(hospital.getId()).stream()
+                .sorted((d1, d2) -> d2.getCreatedAt().compareTo(d1.getCreatedAt()))
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+        List<Patient> recentPatients = patientRepository.findByHospitalId(hospital.getId()).stream()
+                .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+
+        stats.put("recentDonorRegistrations", recentDonors);
+        stats.put("recentPatientRegistrations", recentPatients);
         
         return stats;
     }

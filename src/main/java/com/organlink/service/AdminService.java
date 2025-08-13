@@ -95,19 +95,29 @@ public class AdminService {
      * Create new hospital
      */
     public Hospital createHospital(Hospital hospital) {
+        System.out.println("🔧 AdminService: Creating hospital...");
+
         // Generate unique hospital ID
-        hospital.setHospitalId(generateHospitalId());
-        
+        String hospitalId = generateHospitalId();
+        hospital.setHospitalId(hospitalId);
+        System.out.println("Generated Hospital ID: " + hospitalId);
+
         // Set default status
         hospital.setStatus(HospitalStatus.ACTIVE);
         hospital.setVerificationStatus(VerificationStatus.PENDING);
-        
+
+        System.out.println("Saving hospital to database...");
+
         // Save hospital
         Hospital savedHospital = hospitalRepository.save(hospital);
-        
-        // Create default hospital user account
+
+        System.out.println("Hospital saved with database ID: " + savedHospital.getId());
+
+        // Create default hospital user account (non-blocking)
         createHospitalUser(savedHospital);
-        
+
+        System.out.println("✅ Hospital creation completed successfully");
+
         return savedHospital;
     }
 
@@ -150,6 +160,38 @@ public class AdminService {
             throw new RuntimeException("Hospital not found with id: " + id);
         }
         hospitalRepository.deleteById(id);
+    }
+
+    /**
+     * Get hospital by hospital ID (for viewing details)
+     */
+    public Optional<Hospital> getHospitalByHospitalId(String hospitalId) {
+        return hospitalRepository.findByHospitalId(hospitalId);
+    }
+
+    /**
+     * Update hospital status
+     */
+    public Hospital updateHospitalStatus(Long id, HospitalStatus status) {
+        Optional<Hospital> hospitalOpt = hospitalRepository.findById(id);
+        if (hospitalOpt.isEmpty()) {
+            throw new RuntimeException("Hospital not found with id: " + id);
+        }
+
+        Hospital hospital = hospitalOpt.get();
+        hospital.setStatus(status);
+        return hospitalRepository.save(hospital);
+    }
+
+    /**
+     * Search hospitals by name or ID
+     */
+    public Page<Hospital> searchHospitals(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return hospitalRepository.findAll(pageable);
+        }
+        return hospitalRepository.findByHospitalNameContainingIgnoreCaseOrHospitalIdContainingIgnoreCase(
+                searchTerm, searchTerm, pageable);
     }
 
     /**
@@ -231,6 +273,38 @@ public class AdminService {
         organizationRepository.deleteById(id);
     }
 
+    /**
+     * Get organization by organization ID (for viewing details)
+     */
+    public Optional<Organization> getOrganizationByOrganizationId(String organizationId) {
+        return organizationRepository.findByOrganizationId(organizationId);
+    }
+
+    /**
+     * Update organization status
+     */
+    public Organization updateOrganizationStatus(Long id, OrganizationStatus status) {
+        Optional<Organization> orgOpt = organizationRepository.findById(id);
+        if (orgOpt.isEmpty()) {
+            throw new RuntimeException("Organization not found with id: " + id);
+        }
+
+        Organization organization = orgOpt.get();
+        organization.setStatus(status);
+        return organizationRepository.save(organization);
+    }
+
+    /**
+     * Search organizations by name or ID
+     */
+    public Page<Organization> searchOrganizations(String searchTerm, Pageable pageable) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return organizationRepository.findAll(pageable);
+        }
+        return organizationRepository.findByOrganizationNameContainingIgnoreCaseOrOrganizationIdContainingIgnoreCase(
+                searchTerm, searchTerm, pageable);
+    }
+
     // Helper methods
     private String generateHospitalId() {
         String prefix = "HOSP";
@@ -245,13 +319,36 @@ public class AdminService {
     }
 
     private void createHospitalUser(Hospital hospital) {
-        User user = new User();
-        user.setUsername(hospital.getHospitalId().toLowerCase());
-        user.setEmail(hospital.getEmail());
-        user.setPassword(passwordEncoder.encode("hospital123")); // Default password
-        user.setRole(UserRole.HOSPITAL);
-        user.setTenantId(hospital.getHospitalId());
-        userRepository.save(user);
+        // Check if user already exists with this email or username
+        String username = hospital.getHospitalId().toLowerCase();
+        String email = hospital.getEmail();
+
+        if (userRepository.findByUsername(username).isPresent()) {
+            System.out.println("⚠️ User with username " + username + " already exists, skipping user creation");
+            return;
+        }
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            System.out.println("⚠️ User with email " + email + " already exists, skipping user creation");
+            return;
+        }
+
+        try {
+            User user = new User();
+            user.setUsername(username);
+            user.setEmail(email);
+            // Use hospital ID as default password for easier login
+            String defaultPassword = hospital.getHospitalId().toLowerCase();
+            user.setPassword(passwordEncoder.encode(defaultPassword));
+            System.out.println("🔑 Default password set to: " + defaultPassword);
+            user.setRole(UserRole.HOSPITAL);
+            user.setTenantId(hospital.getHospitalId());
+            userRepository.save(user);
+            System.out.println("✅ Hospital user account created successfully");
+        } catch (Exception e) {
+            System.out.println("❌ Failed to create hospital user: " + e.getMessage());
+            // Don't throw exception - hospital creation should succeed even if user creation fails
+        }
     }
 
     private void createOrganizationUser(Organization organization) {

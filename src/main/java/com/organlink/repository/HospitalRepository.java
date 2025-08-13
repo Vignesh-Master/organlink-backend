@@ -46,10 +46,22 @@ public interface HospitalRepository extends JpaRepository<Hospital, Long> {
     
     @Query("SELECT h FROM Hospital h WHERE h.status = 'ACTIVE'")
     List<Hospital> findActiveHospitals();
+
+    Page<Hospital> findByHospitalNameContainingIgnoreCaseOrHospitalIdContainingIgnoreCase(
+            String hospitalName, String hospitalId, Pageable pageable);
     
     @Query("SELECT COUNT(h) FROM Hospital h WHERE h.status = :status")
     long countByStatus(@Param("status") HospitalStatus status);
     
     @Query("SELECT h FROM Hospital h WHERE h.specializations LIKE %:specialization%")
     List<Hospital> findBySpecialization(@Param("specialization") String specialization);
+
+    @Query("SELECT DISTINCT h.city FROM Hospital h WHERE h.state = :state")
+    List<String> findDistinctCitiesByState(@Param("state") String state);
+
+    @Query("SELECT DISTINCT h.country FROM Hospital h")
+    List<String> findDistinctCountries();
+
+    @Query("SELECT DISTINCT h.state FROM Hospital h WHERE h.country = :country")
+    List<String> findDistinctStatesByCountry(@Param("country") String country);
 }
