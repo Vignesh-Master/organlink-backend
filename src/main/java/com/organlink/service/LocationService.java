@@ -256,17 +256,19 @@ public class LocationService {
             case "GA" -> "Georgia";
             case "NC" -> "North Carolina";
             case "MI" -> "Michigan";
-            case "TN" -> "Tamil Nadu";
-            case "KA" -> "Karnataka";
-            case "MH" -> "Maharashtra";
-            case "DL" -> "Delhi";
-            case "WB" -> "West Bengal";
-            case "RJ" -> "Rajasthan";
-            case "UP" -> "Uttar Pradesh";
-            case "GJ" -> "Gujarat";
-            case "AP" -> "Andhra Pradesh";
-            case "KL" -> "Kerala";
-            default -> stateId; // Return as-is if not found
+            case "TN", "TAMIL_NADU" -> "Tamil Nadu";
+            case "KA", "KARNATAKA" -> "Karnataka";
+            case "MH", "MAHARASHTRA" -> "Maharashtra";
+            case "DL", "DELHI" -> "Delhi";
+            case "WB", "WEST_BENGAL" -> "West Bengal";
+            case "RJ", "RAJASTHAN" -> "Rajasthan";
+            case "UP", "UTTAR_PRADESH" -> "Uttar Pradesh";
+            case "GJ", "GUJARAT" -> "Gujarat";
+            case "AP", "ANDHRA_PRADESH" -> "Andhra Pradesh";
+            case "KL", "KERALA" -> "Kerala";
+            case "UNITED_STATES" -> "United States";
+            case "CALIFORNIA" -> "California";
+            default -> stateId.replaceAll("_", " "); // Convert underscores to spaces
         };
     }
 

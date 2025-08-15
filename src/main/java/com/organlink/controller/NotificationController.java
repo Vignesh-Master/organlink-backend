@@ -22,7 +22,7 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<Notification>>> getMyNotifications(Authentication authentication) {
         CustomUserDetailsService.CustomUserPrincipal principal = (CustomUserDetailsService.CustomUserPrincipal) authentication.getPrincipal();
-        List<Notification> notifications = notificationService.getNotificationsForUser(principal.getId());
+        List<Notification> notifications = notificationService.getNotificationsForUser(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Notifications retrieved", notifications));
     }
 

@@ -62,8 +62,9 @@ blockchain:
     gas-price: 20000000000
     gas-limit: 6721975
   contracts:
-    policy-voting: # Will be set after deployment
-    signature-verification: # Will be set after deployment
+    policy-voting-address: # Will be set after deployment
+    signature-verification-address: 0x2ed506da0a5f375833176d51b73f3d0ca5e66c8a
+    signature-verification-tx-hash: 0x3b2c3fc324f3418f12c20f777a37538a10a80c1bfe5a01bb4dc6531d51bb34b2
 
 # IPFS Configuration
 ipfs:

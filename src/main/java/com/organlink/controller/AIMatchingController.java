@@ -6,6 +6,7 @@ import com.organlink.service.AIMatchingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -86,5 +87,46 @@ public class AIMatchingController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to reject match", e.getMessage()));
         }
+    }
+
+    /**
+     * Get all matches for a hospital (including cross-hospital matches)
+     */
+    @GetMapping("/hospital-matches")
+    public ResponseEntity<ApiResponse<List<Match>>> getHospitalMatches(
+            Authentication authentication) {
+        try {
+            String hospitalId = getHospitalIdFromAuth(authentication);
+            List<Match> matches = aiMatchingService.getMatchesForHospital(hospitalId);
+            return ResponseEntity.ok(ApiResponse.success("Hospital matches retrieved", matches));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to retrieve hospital matches", e.getMessage()));
+        }
+    }
+
+    /**
+     * Trigger AI matching for all patients in a hospital
+     */
+    @PostMapping("/trigger-hospital-matching")
+    public ResponseEntity<ApiResponse<String>> triggerHospitalMatching(
+            Authentication authentication) {
+        try {
+            String hospitalId = getHospitalIdFromAuth(authentication);
+            int matchesFound = aiMatchingService.triggerMatchingForHospital(hospitalId);
+            return ResponseEntity.ok(ApiResponse.success(
+                "AI matching completed", 
+                String.format("Found %d potential matches across all hospitals", matchesFound)));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to trigger AI matching", e.getMessage()));
+        }
+    }
+
+    // Helper method to extract hospital ID from authentication
+    private String getHospitalIdFromAuth(Authentication authentication) {
+        com.organlink.security.CustomUserDetailsService.CustomUserPrincipal principal = 
+            (com.organlink.security.CustomUserDetailsService.CustomUserPrincipal) authentication.getPrincipal();
+        return principal.getTenantId();
     }
 }

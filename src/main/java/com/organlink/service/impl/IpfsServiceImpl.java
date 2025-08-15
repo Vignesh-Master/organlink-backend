@@ -1,6 +1,6 @@
 package com.organlink.service.impl;
 
-import com.organlink.service.IpfsService;
+import com.organlink.service.IPFSService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Map;
 
 @Service
-public class IpfsServiceImpl implements IpfsService {
+public class IpfsServiceImpl implements IPFSService {
 
     @Value("${ipfs.api-url}")
     private String apiUrl;

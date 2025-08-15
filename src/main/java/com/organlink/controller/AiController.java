@@ -2,7 +2,7 @@ package com.organlink.controller;
 
 import com.organlink.dto.ApiResponse;
 import com.organlink.entity.Match;
-import com.organlink.service.AiMatchingService;
+import com.organlink.service.AIMatchingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,7 +19,7 @@ import java.util.List;
 public class AiController {
 
     @Autowired
-    private AiMatchingService aiMatchingService;
+    private AIMatchingService aiMatchingService;
 
     /**
      * Manually trigger the AI model training process.

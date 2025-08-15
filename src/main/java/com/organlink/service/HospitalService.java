@@ -2,6 +2,9 @@ package com.organlink.service;
 
 import com.organlink.entity.*;
 import com.organlink.repository.*;
+import com.organlink.blockchain.OrganLinkRegistryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,10 +44,18 @@ public class HospitalService {
     private OcrService ocrService;
 
     @Autowired
-    private IpfsService ipfsService;
+    private IPFSService ipfsService;
 
     @Autowired
-    private BlockchainService blockchainService;
+    private OrganLinkRegistryService blockchainService;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    private static final Logger logger = LoggerFactory.getLogger(HospitalService.class);
 
 
     /**
@@ -89,6 +100,44 @@ public class HospitalService {
         stats.put("recentDonorRegistrations", recentDonors);
         stats.put("recentPatientRegistrations", recentPatients);
         
+        // Blockchain verification statistics
+        long verifiedDonors = donorRepository.findByHospitalId(hospital.getId()).stream()
+                .filter(donor -> donor.getSignatureVerified() != null && donor.getSignatureVerified())
+                .count();
+        long verifiedPatients = patientRepository.findByHospitalId(hospital.getId()).stream()
+                .filter(patient -> patient.getSignatureVerified() != null && patient.getSignatureVerified())
+                .count();
+        
+        stats.put("verifiedDonors", verifiedDonors);
+        stats.put("verifiedPatients", verifiedPatients);
+        
+        // IPFS and blockchain integration stats
+        long ipfsRecords = signatureRecordRepository.countByUploadedBy(hospital);
+        stats.put("ipfsRecords", ipfsRecords);
+        
+        // Recent matches for this hospital
+        List<Match> recentMatches = matchRepository.findMatchesForHospital(hospitalId).stream()
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+        stats.put("recentMatches", recentMatches);
+        
+        // Cross-hospital matches (where donor and patient are from different hospitals)
+        long crossHospitalMatches = matchRepository.findMatchesForHospital(hospitalId).stream()
+                .filter(match -> !match.getPatient().getHospital().getId().equals(match.getDonor().getHospital().getId()))
+                .count();
+        stats.put("crossHospitalMatches", crossHospitalMatches);
+        
+        // Notification statistics
+        Optional<User> hospitalUser = userRepository.findByTenantId(hospitalId);
+        if (hospitalUser.isPresent()) {
+            List<Notification> unreadNotifications = notificationService.getUnreadNotificationsForUser(hospitalUser.get().getId());
+            stats.put("unreadNotifications", unreadNotifications.size());
+            stats.put("recentNotifications", unreadNotifications.stream().limit(5).collect(java.util.stream.Collectors.toList()));
+        } else {
+            stats.put("unreadNotifications", 0);
+            stats.put("recentNotifications", java.util.Collections.emptyList());
+        }
+        
         return stats;
     }
 
@@ -103,7 +152,8 @@ public class HospitalService {
 
         // 2. Upload to IPFS
         String ipfsHash = ipfsService.uploadFile(signatureImage);
-        donor.setConsentIpfsHash(ipfsHash); // Assuming Donor entity has this field
+        donor.setSignatureIpfsHash(ipfsHash); // Corrected method name
+        donor.setSignatureVerified(true);
 
         // 3. Save Donor and get ID
         Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(hospitalId);
@@ -128,8 +178,8 @@ public class HospitalService {
         // 4. Create Signature Record
         createSignatureRecord(ipfsHash, "DONOR_CONSENT", savedDonor.getId(), "DONOR", hospital);
 
-        // 5. Asynchronously record on blockchain
-        blockchainService.recordDonorRegistration(savedDonor);
+        // 5. Register on blockchain
+        registerDonorOnBlockchain(savedDonor, ipfsHash);
 
         return savedDonor;
     }
@@ -145,7 +195,8 @@ public class HospitalService {
 
         // 2. Upload to IPFS
         String ipfsHash = ipfsService.uploadFile(signatureImage);
-        patient.setConsentIpfsHash(ipfsHash); // Assuming Patient entity has this field
+        patient.setSignatureIpfsHash(ipfsHash); // Corrected method name
+        patient.setSignatureVerified(true);
 
         // 3. Save Patient and get ID
         Optional<Hospital> hospitalOpt = hospitalRepository.findByHospitalId(hospitalId);
@@ -172,8 +223,8 @@ public class HospitalService {
         // 4. Create Signature Record
         createSignatureRecord(ipfsHash, "PATIENT_CONSENT", savedPatient.getId(), "PATIENT", hospital);
 
-        // 5. Asynchronously record on blockchain
-        blockchainService.recordPatientRegistration(savedPatient);
+        // 5. Register on blockchain
+        registerPatientOnBlockchain(savedPatient, ipfsHash);
 
         return savedPatient;
     }
@@ -372,5 +423,107 @@ public class HospitalService {
         record.setUploadedBy(hospital);
         // The blockchainTxHash will be set later by an async process
         signatureRecordRepository.save(record);
+    }
+
+    /**
+     * Register donor on blockchain asynchronously
+     */
+    private void registerDonorOnBlockchain(Donor donor, String ipfsHash) {
+        try {
+            logger.info("🔗 Registering donor {} on blockchain...", donor.getDonorId());
+            
+            String fullName = donor.getFirstName() + " " + donor.getLastName();
+            
+            // Register donor on blockchain
+            blockchainService.registerDonor(
+                donor.getDonorId(),
+                fullName,
+                donor.getBloodType().toString(),
+                ipfsHash
+            ).thenAccept(transactionHash -> {
+                logger.info("✅ Donor {} registered on blockchain. Tx Hash: {}", 
+                    donor.getDonorId(), transactionHash);
+            }).exceptionally(throwable -> {
+                logger.error("❌ Failed to register donor {} on blockchain: {}", 
+                    donor.getDonorId(), throwable.getMessage());
+                return null;
+            });
+            
+        } catch (Exception e) {
+            logger.error("❌ Error initiating donor blockchain registration: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Register patient on blockchain asynchronously
+     */
+    private void registerPatientOnBlockchain(Patient patient, String ipfsHash) {
+        try {
+            logger.info("🔗 Registering patient {} on blockchain...", patient.getPatientId());
+            
+            String fullName = patient.getFirstName() + " " + patient.getLastName();
+            
+            // Register patient on blockchain
+            blockchainService.registerPatient(
+                patient.getPatientId(),
+                fullName,
+                patient.getBloodType().toString(),
+                patient.getOrganNeeded(),
+                patient.getUrgencyLevel().toString(),
+                ipfsHash
+            ).thenAccept(transactionHash -> {
+                logger.info("✅ Patient {} registered on blockchain. Tx Hash: {}", 
+                    patient.getPatientId(), transactionHash);
+            }).exceptionally(throwable -> {
+                logger.error("❌ Failed to register patient {} on blockchain: {}", 
+                    patient.getPatientId(), throwable.getMessage());
+                return null;
+            });
+            
+        } catch (Exception e) {
+            logger.error("❌ Error initiating patient blockchain registration: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Verify donor signature on blockchain
+     */
+    public void verifyDonorSignature(String donorId, boolean verified) {
+        try {
+            logger.info("🔗 Verifying donor signature for {} as {}", donorId, verified);
+            
+            blockchainService.verifyDonorSignature(donorId, verified)
+                .thenAccept(transactionHash -> {
+                    logger.info("✅ Donor signature verification completed. Tx Hash: {}", transactionHash);
+                })
+                .exceptionally(throwable -> {
+                    logger.error("❌ Failed to verify donor signature: {}", throwable.getMessage());
+                    return null;
+                });
+                
+        } catch (Exception e) {
+            logger.error("❌ Error verifying donor signature: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Verify patient signature on blockchain
+     */
+    public void verifyPatientSignature(String patientId, boolean verified) {
+        try {
+            logger.info("🔗 Verifying patient signature for {} as {}", patientId, verified);
+            
+            blockchainService.verifyPatientSignature(patientId, verified)
+                .thenAccept(transactionHash -> {
+                    logger.info("✅ Patient signature verification completed. Tx Hash: {}", transactionHash);
+                })
+                .exceptionally(throwable -> {
+                    logger.error("❌ Failed to verify patient signature: {}", throwable.getMessage());
+                    return null;
+                });
+                
+        } catch (Exception e) {
+            logger.error("❌ Error verifying patient signature: {}", e.getMessage(), e);
+        }
     }
 }

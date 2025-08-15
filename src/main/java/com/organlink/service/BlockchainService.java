@@ -2,298 +2,114 @@ package com.organlink.service;
 
 import com.organlink.entity.*;
 import com.organlink.repository.BlockchainTransactionRepository;
+import com.organlink.repository.SignatureRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.core.methods.response.TransactionReceipt;
-import org.web3j.tx.gas.StaticGasProvider;
+import org.web3j.protocol.http.HttpService;
+import org.web3j.tx.gas.DefaultGasProvider;
 
+import jakarta.annotation.PostConstruct;
 import java.math.BigInteger;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
-/**
- * Blockchain service for Ethereum integration
- * Handles smart contract interactions and transaction recording
- */
 @Service
-@Transactional
 public class BlockchainService {
 
-    @Autowired
-    private Web3j web3j;
+    @Value("${blockchain.ethereum.network-url}")
+    private String networkUrl;
+
+    @Value("${blockchain.ethereum.private-key}")
+    private String privateKey;
+
+    @Value("${blockchain.contracts.signature-verification-address:}")
+    private String signatureContractAddress;
+
+    @Value("${blockchain.contracts.policy-voting-address:}")
+    private String policyContractAddress;
 
     @Autowired
+    private BlockchainTransactionRepository transactionRepository;
+
+    @Autowired
+    private SignatureRecordRepository signatureRecordRepository;
+
+    private Web3j web3j;
     private Credentials credentials;
 
-    @Autowired
-    private StaticGasProvider gasProvider;
+    @PostConstruct
+    public void init() {
+        this.web3j = Web3j.build(new HttpService(networkUrl));
+        this.credentials = Credentials.create(privateKey);
+        System.out.println("✅ BlockchainService initialized. Connected to: " + networkUrl);
+    }
 
-    @Autowired
-    private BlockchainTransactionRepository blockchainTransactionRepository;
-
-    @Value("${blockchain.contracts.policy-voting:}")
-    private String policyVotingContractAddress;
-
-    @Value("${blockchain.contracts.signature-verification:}")
-    private String signatureVerificationContractAddress;
-
-    /**
-     * Record policy creation on blockchain
-     */
     @Async
-    public CompletableFuture<String> recordPolicyCreation(Policy policy) {
+    public void recordDonorRegistration(Donor donor) {
         try {
-            // Create blockchain transaction record
-            BlockchainTransaction transaction = new BlockchainTransaction();
-            transaction.setEventType(BlockchainEventType.POLICY_CREATED);
-            transaction.setFromAddress(credentials.getAddress());
-            transaction.setEntityType("POLICY");
-            transaction.setEntityId(policy.getPolicyId());
-            transaction.setInitiatorType("ORGANIZATION");
-            transaction.setInitiatorId(policy.getProposedByOrganization().getOrganizationId());
-            transaction.setStatus(TransactionStatus.PENDING);
+            // This is a placeholder until the contract is deployed and ABI is provided
+            System.out.println("Simulating blockchain transaction for Donor: " + donor.getFullName());
+            String txHash = "0x" + new java.math.BigInteger(130, new java.security.SecureRandom()).toString(16);
+            
+            // Update the donor entity with the simulated hash
+            donor.setBlockchainTxHash(txHash);
+            // In a real scenario, you would save the donor entity here after getting the hash
 
-            // For now, simulate blockchain transaction
-            // In production, this would interact with deployed smart contracts
-            String simulatedTxHash = generateSimulatedTxHash();
-            transaction.setTransactionHash(simulatedTxHash);
-            transaction.setStatus(TransactionStatus.CONFIRMED);
-            transaction.setConfirmedAt(LocalDateTime.now());
-            transaction.setConfirmations(1);
-
-            blockchainTransactionRepository.save(transaction);
-
-            // Update policy with blockchain transaction hash
-            policy.setBlockchainTxHash(simulatedTxHash);
-
-            return CompletableFuture.completedFuture(simulatedTxHash);
-
+            logTransaction(txHash, "DONOR_REGISTERED", "CONFIRMED", donor.getDonorId());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to record policy creation on blockchain", e);
+            System.err.println("Blockchain transaction failed for Donor " + donor.getFullName() + ": " + e.getMessage());
+            logTransaction(null, "DONOR_REGISTERED", "FAILED", e.getMessage());
         }
     }
 
-    /**
-     * Record vote on blockchain
-     */
     @Async
-    public CompletableFuture<String> recordVote(Vote vote) {
+    public void recordPatientRegistration(Patient patient) {
         try {
-            // Create blockchain transaction record
-            BlockchainTransaction transaction = new BlockchainTransaction();
-            transaction.setEventType(BlockchainEventType.POLICY_VOTED);
-            transaction.setFromAddress(credentials.getAddress());
-            transaction.setEntityType("VOTE");
-            transaction.setEntityId(vote.getId().toString());
-            transaction.setInitiatorType("ORGANIZATION");
-            transaction.setInitiatorId(vote.getOrganization().getOrganizationId());
-            transaction.setStatus(TransactionStatus.PENDING);
-
-            // Create event data
-            String eventData = String.format(
-                "{\"policyId\":\"%s\",\"organizationId\":\"%s\",\"voteType\":\"%s\",\"votingPower\":%d}",
-                vote.getPolicy().getPolicyId(),
-                vote.getOrganization().getOrganizationId(),
-                vote.getVoteType().name(),
-                vote.getVotingPower()
-            );
-            transaction.setEventData(eventData);
-
-            // Simulate blockchain transaction
-            String simulatedTxHash = generateSimulatedTxHash();
-            transaction.setTransactionHash(simulatedTxHash);
-            transaction.setStatus(TransactionStatus.CONFIRMED);
-            transaction.setConfirmedAt(LocalDateTime.now());
-            transaction.setConfirmations(1);
-
-            blockchainTransactionRepository.save(transaction);
-
-            // Update vote with blockchain transaction hash
-            vote.setBlockchainTxHash(simulatedTxHash);
-
-            return CompletableFuture.completedFuture(simulatedTxHash);
-
+            System.out.println("Simulating blockchain transaction for Patient: " + patient.getFullName());
+            String txHash = "0x" + new java.math.BigInteger(130, new java.security.SecureRandom()).toString(16);
+            patient.setBlockchainTxHash(txHash);
+            logTransaction(txHash, "PATIENT_REGISTERED", "CONFIRMED", patient.getPatientId());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to record vote on blockchain", e);
+            System.err.println("Blockchain transaction failed for Patient " + patient.getFullName() + ": " + e.getMessage());
+            logTransaction(null, "PATIENT_REGISTERED", "FAILED", e.getMessage());
         }
     }
 
-    /**
-     * Record donor registration on blockchain
-     */
     @Async
-    public CompletableFuture<String> recordDonorRegistration(Donor donor) {
+    public void recordPolicyCreation(Policy policy) {
         try {
-            BlockchainTransaction transaction = new BlockchainTransaction();
-            transaction.setEventType(BlockchainEventType.DONOR_REGISTERED);
-            transaction.setFromAddress(credentials.getAddress());
-            transaction.setEntityType("DONOR");
-            transaction.setEntityId(donor.getDonorId());
-            transaction.setInitiatorType("HOSPITAL");
-            transaction.setInitiatorId(donor.getHospital().getHospitalId());
-            transaction.setStatus(TransactionStatus.PENDING);
-
-            String eventData = String.format(
-                "{\"donorId\":\"%s\",\"hospitalId\":\"%s\",\"organTypes\":%s,\"bloodType\":\"%s\"}",
-                donor.getDonorId(),
-                donor.getHospital().getHospitalId(),
-                donor.getOrganTypes().toString(),
-                donor.getBloodType()
-            );
-            transaction.setEventData(eventData);
-
-            String simulatedTxHash = generateSimulatedTxHash();
-            transaction.setTransactionHash(simulatedTxHash);
-            transaction.setStatus(TransactionStatus.CONFIRMED);
-            transaction.setConfirmedAt(LocalDateTime.now());
-            transaction.setConfirmations(1);
-
-            blockchainTransactionRepository.save(transaction);
-            donor.setBlockchainTxHash(simulatedTxHash);
-
-            return CompletableFuture.completedFuture(simulatedTxHash);
-
+            System.out.println("Simulating blockchain transaction for Policy: " + policy.getTitle());
+            String txHash = "0x" + new java.math.BigInteger(130, new java.security.SecureRandom()).toString(16);
+            policy.setBlockchainTxHash(txHash);
+            logTransaction(txHash, "POLICY_CREATED", "CONFIRMED", policy.getPolicyId());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to record donor registration on blockchain", e);
+            System.err.println("Blockchain transaction failed for Policy " + policy.getTitle() + ": " + e.getMessage());
+            logTransaction(null, "POLICY_CREATED", "FAILED", e.getMessage());
         }
     }
 
-    /**
-     * Record patient registration on blockchain
-     */
     @Async
-    public CompletableFuture<String> recordPatientRegistration(Patient patient) {
+    public void recordVote(Vote vote) {
         try {
-            BlockchainTransaction transaction = new BlockchainTransaction();
-            transaction.setEventType(BlockchainEventType.PATIENT_REGISTERED);
-            transaction.setFromAddress(credentials.getAddress());
-            transaction.setEntityType("PATIENT");
-            transaction.setEntityId(patient.getPatientId());
-            transaction.setInitiatorType("HOSPITAL");
-            transaction.setInitiatorId(patient.getHospital().getHospitalId());
-            transaction.setStatus(TransactionStatus.PENDING);
-
-            String eventData = String.format(
-                "{\"patientId\":\"%s\",\"hospitalId\":\"%s\",\"organNeeded\":\"%s\",\"bloodType\":\"%s\",\"urgencyLevel\":\"%s\"}",
-                patient.getPatientId(),
-                patient.getHospital().getHospitalId(),
-                patient.getOrganNeeded(),
-                patient.getBloodType(),
-                patient.getUrgencyLevel().name()
-            );
-            transaction.setEventData(eventData);
-
-            String simulatedTxHash = generateSimulatedTxHash();
-            transaction.setTransactionHash(simulatedTxHash);
-            transaction.setStatus(TransactionStatus.CONFIRMED);
-            transaction.setConfirmedAt(LocalDateTime.now());
-            transaction.setConfirmations(1);
-
-            blockchainTransactionRepository.save(transaction);
-            patient.setBlockchainTxHash(simulatedTxHash);
-
-            return CompletableFuture.completedFuture(simulatedTxHash);
-
+            System.out.println("Simulating blockchain transaction for Vote on Policy: " + vote.getPolicy().getTitle());
+            String txHash = "0x" + new java.math.BigInteger(130, new java.security.SecureRandom()).toString(16);
+            vote.setBlockchainTxHash(txHash);
+            logTransaction(txHash, "POLICY_VOTED", "CONFIRMED", "Policy: " + vote.getPolicy().getPolicyId());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to record patient registration on blockchain", e);
+            System.err.println("Blockchain transaction failed for Vote on Policy " + vote.getPolicy().getTitle() + ": " + e.getMessage());
+            logTransaction(null, "POLICY_VOTED", "FAILED", e.getMessage());
         }
     }
 
-    /**
-     * Record signature verification on blockchain
-     */
-    @Async
-    public CompletableFuture<String> recordSignatureVerification(SignatureRecord signatureRecord) {
-        try {
-            BlockchainTransaction transaction = new BlockchainTransaction();
-            transaction.setEventType(BlockchainEventType.SIGNATURE_VERIFIED);
-            transaction.setFromAddress(credentials.getAddress());
-            transaction.setEntityType("SIGNATURE");
-            transaction.setEntityId(signatureRecord.getFileId());
-            transaction.setInitiatorType("HOSPITAL");
-            transaction.setStatus(TransactionStatus.PENDING);
-
-            String eventData = String.format(
-                "{\"fileId\":\"%s\",\"ipfsHash\":\"%s\",\"signerName\":\"%s\",\"verificationStatus\":\"%s\",\"confidence\":%.2f}",
-                signatureRecord.getFileId(),
-                signatureRecord.getIpfsHash(),
-                signatureRecord.getSignerName(),
-                signatureRecord.getVerificationStatus().name(),
-                signatureRecord.getNameMatchConfidence()
-            );
-            transaction.setEventData(eventData);
-
-            String simulatedTxHash = generateSimulatedTxHash();
-            transaction.setTransactionHash(simulatedTxHash);
-            transaction.setStatus(TransactionStatus.CONFIRMED);
-            transaction.setConfirmedAt(LocalDateTime.now());
-            transaction.setConfirmations(1);
-
-            blockchainTransactionRepository.save(transaction);
-            signatureRecord.setBlockchainTxHash(simulatedTxHash);
-
-            return CompletableFuture.completedFuture(simulatedTxHash);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to record signature verification on blockchain", e);
-        }
-    }
-
-    /**
-     * Get blockchain transactions
-     */
-    public List<BlockchainTransaction> getTransactions() {
-        return blockchainTransactionRepository.findAll();
-    }
-
-    /**
-     * Get transaction by hash
-     */
-    public Optional<BlockchainTransaction> getTransactionByHash(String hash) {
-        return blockchainTransactionRepository.findByTransactionHash(hash);
-    }
-
-    /**
-     * Get transactions by entity
-     */
-    public List<BlockchainTransaction> getTransactionsByEntity(String entityType, String entityId) {
-        return blockchainTransactionRepository.findByEntityTypeAndEntityId(entityType, entityId);
-    }
-
-    /**
-     * Check if Web3 connection is healthy
-     */
-    public boolean isBlockchainConnected() {
-        try {
-            web3j.web3ClientVersion().send();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
-     * Get current block number
-     */
-    public BigInteger getCurrentBlockNumber() {
-        try {
-            return web3j.ethBlockNumber().send().getBlockNumber();
-        } catch (Exception e) {
-            return BigInteger.ZERO;
-        }
-    }
-
-    // Helper methods
-    private String generateSimulatedTxHash() {
-        // Generate a realistic-looking transaction hash for simulation
-        return "0x" + java.util.UUID.randomUUID().toString().replace("-", "") + 
-               java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    private void logTransaction(String txHash, String type, String status, String details) {
+        BlockchainTransaction transaction = new BlockchainTransaction();
+        transaction.setTransactionHash(txHash != null ? txHash : "failed-tx-" + System.currentTimeMillis());
+        transaction.setEventType(BlockchainEventType.valueOf(type));
+        transaction.setStatus(TransactionStatus.valueOf(status));
+        transaction.setEventData(details);
+        transaction.setFromAddress(credentials.getAddress());
+        transactionRepository.save(transaction);
     }
 }

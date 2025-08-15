@@ -63,4 +63,6 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
     
     @Query("SELECT p FROM Patient p WHERE p.status = 'WAITING' AND p.urgencyLevel IN ('CRITICAL', 'EMERGENCY')")
     List<Patient> findCriticalPatients();
+    
+    List<Patient> findByHospitalHospitalIdAndStatus(String hospitalId, PatientStatus status);
 }

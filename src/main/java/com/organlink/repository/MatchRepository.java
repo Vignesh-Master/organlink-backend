@@ -18,13 +18,13 @@ import java.util.Optional;
 @Repository
 public interface MatchRepository extends JpaRepository<Match, Long> {
     
-    Optional<Match> findByMatchId(String matchId);
+    // Optional<Match> findByMatchId(String matchId); // matchId doesn't exist in Match entity
     
     List<Match> findByStatus(MatchStatus status);
     
-    List<Match> findByDonorId(Long donorId);
+    // List<Match> findByDonorId(Long donorId); // Use relationships
     
-    List<Match> findByPatientId(Long patientId);
+    // List<Match> findByPatientId(Long patientId); // Use relationships
     
     @Query("SELECT m FROM Match m WHERE m.donor.hospital.id = :hospitalId OR m.patient.hospital.id = :hospitalId")
     List<Match> findByHospitalId(@Param("hospitalId") Long hospitalId);
@@ -35,21 +35,24 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("SELECT COUNT(m) FROM Match m WHERE (m.donor.hospital.id = :hospitalId OR m.patient.hospital.id = :hospitalId) AND m.status = 'COMPLETED'")
     long countCompletedByHospitalId(@Param("hospitalId") Long hospitalId);
     
-    @Query("SELECT m FROM Match m WHERE m.status = 'PENDING' ORDER BY m.finalScore DESC")
+    @Query("SELECT m FROM Match m WHERE m.status = 'PENDING' ORDER BY m.matchScore DESC")
     List<Match> findPendingMatchesOrderedByScore();
     
-    @Query("SELECT m FROM Match m WHERE m.patient.id = :patientId ORDER BY m.finalScore DESC")
+    @Query("SELECT m FROM Match m WHERE m.patient.id = :patientId ORDER BY m.matchScore DESC")
     List<Match> findByPatientIdOrderedByScore(@Param("patientId") Long patientId);
     
-    @Query("SELECT m FROM Match m WHERE m.donor.id = :donorId ORDER BY m.finalScore DESC")
+    @Query("SELECT m FROM Match m WHERE m.donor.id = :donorId ORDER BY m.matchScore DESC")
     List<Match> findByDonorIdOrderedByScore(@Param("donorId") Long donorId);
     
     @Query("SELECT COUNT(m) FROM Match m WHERE m.status = :status")
     long countByStatus(@Param("status") MatchStatus status);
     
-    @Query("SELECT m FROM Match m WHERE m.expiryDate < CURRENT_TIMESTAMP AND m.status = 'PENDING'")
-    List<Match> findExpiredMatches();
+    // @Query("SELECT m FROM Match m WHERE m.expiryDate < CURRENT_TIMESTAMP AND m.status = 'PENDING'")
+    // List<Match> findExpiredMatches(); // expiryDate field doesn't exist in Match entity
     
     @Query("SELECT m FROM Match m WHERE m.donor.hospital.hospitalId = :hospitalId OR m.patient.hospital.hospitalId = :hospitalId")
     Page<Match> findByHospitalHospitalId(@Param("hospitalId") String hospitalId, Pageable pageable);
+    
+    @Query("SELECT m FROM Match m WHERE m.donor.hospital.hospitalId = :hospitalId OR m.patient.hospital.hospitalId = :hospitalId ORDER BY m.createdAt DESC")
+    List<Match> findMatchesForHospital(@Param("hospitalId") String hospitalId);
 }

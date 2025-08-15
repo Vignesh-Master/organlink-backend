@@ -67,7 +67,6 @@ public class Hospital {
     @Column(name = "alternate_phone")
     private String alternatePhone;
     
-    @NotBlank
     @Column(name = "license_number", unique = true, nullable = false)
     private String licenseNumber;
     
@@ -84,6 +83,14 @@ public class Hospital {
 
     @Transient // Don't store password in database, only use for user creation
     private String password;
+
+    // Blockchain wallet address for this hospital
+    @Column(name = "blockchain_address")
+    private String blockchainAddress;
+
+    // Transaction hash of blockchain authorization
+    @Column(name = "authorization_tx_hash")
+    private String authorizationTxHash;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -195,6 +202,13 @@ public class Hospital {
     // Password management for admin operations
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    // Blockchain fields getters and setters
+    public String getBlockchainAddress() { return blockchainAddress; }
+    public void setBlockchainAddress(String blockchainAddress) { this.blockchainAddress = blockchainAddress; }
+
+    public String getAuthorizationTxHash() { return authorizationTxHash; }
+    public void setAuthorizationTxHash(String authorizationTxHash) { this.authorizationTxHash = authorizationTxHash; }
 }
 
 // Enums moved to separate files

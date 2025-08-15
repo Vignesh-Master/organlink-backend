@@ -33,7 +33,7 @@ public class DataInitializer implements CommandLineRunner {
             adminUser.setPassword(passwordEncoder.encode(adminPassword));
             adminUser.setEmail("admin@organlink.com"); // Default email
             adminUser.setRole(UserRole.ADMIN);
-            adminUser.setEnabled(true);
+            // The 'enabled' property is part of Spring Security's UserDetails, not our User entity.
             userRepository.save(adminUser);
             System.out.println("✅ Default admin user created successfully!");
         }

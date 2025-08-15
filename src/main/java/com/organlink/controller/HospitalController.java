@@ -1,11 +1,13 @@
 package com.organlink.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.organlink.dto.ApiResponse;
+import com.organlink.dto.DonorRegistrationRequest;
 import com.organlink.entity.Donor;
+import com.organlink.entity.Gender;
 import com.organlink.entity.Patient;
 import com.organlink.security.CustomUserDetailsService;
 import com.organlink.service.HospitalService;
-import com.organlink.service.BlockchainService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,9 +36,6 @@ public class HospitalController {
     @Autowired
     private HospitalService hospitalService;
 
-    @Autowired
-    private BlockchainService blockchainService;
-
     /**
      * Get hospital dashboard statistics
      */
@@ -55,19 +54,26 @@ public class HospitalController {
     // Donor Management Endpoints
 
     /**
-     * Register new donor with signature upload
+     * Register new donor with signature upload (matches frontend format)
      */
     @PostMapping(value = "/donors", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Donor>> registerDonor(
-            @RequestPart("donor") @Valid Donor donor,
-            @RequestPart("signatureImage") MultipartFile signatureImage,
-            @RequestParam("signatureName") String signatureName,
+            @RequestParam("donorData") String donorDataJson,
+            @RequestPart("signatureFile") MultipartFile signatureFile,
+            @RequestParam("signerName") String signerName,
+            @RequestParam("signerType") String signerType,
             Authentication authentication) {
         try {
             String hospitalId = getHospitalIdFromAuth(authentication);
-            Donor registeredDonor = hospitalService.registerDonor(donor, hospitalId, signatureImage, signatureName);
             
-            // Blockchain recording is now handled within HospitalService
+            // Parse the JSON donor data
+            ObjectMapper objectMapper = new ObjectMapper();
+            DonorRegistrationRequest donorRequest = objectMapper.readValue(donorDataJson, DonorRegistrationRequest.class);
+            
+            // Convert DTO to Entity
+            Donor donor = convertDonorRequestToEntity(donorRequest);
+            
+            Donor registeredDonor = hospitalService.registerDonor(donor, hospitalId, signatureFile, signerName);
             
             return ResponseEntity.ok(ApiResponse.success("Donor registered successfully", registeredDonor));
         } catch (Exception e) {
@@ -216,6 +222,46 @@ public class HospitalController {
         }
     }
 
+    // Helper method to convert DonorRegistrationRequest to Donor entity
+    private Donor convertDonorRequestToEntity(DonorRegistrationRequest request) {
+        Donor donor = new Donor();
+        
+        donor.setDonorId(request.getDonorId());
+        donor.setFirstName(request.getFirstName());
+        donor.setLastName(request.getLastName());
+        donor.setDateOfBirth(request.getDateOfBirth());
+        
+        // Convert gender string to enum
+        if (request.getGender() != null) {
+            donor.setGender(Gender.valueOf(request.getGender().toUpperCase()));
+        }
+        
+        donor.setBloodType(request.getBloodGroup());
+        donor.setEmail(request.getEmail());
+        donor.setPhone(request.getPhone());
+        donor.setAlternatePhone(request.getAlternatePhone());
+        donor.setAddress(request.getAddress());
+        donor.setCity(request.getCity());
+        donor.setState(request.getState());
+        donor.setCountry(request.getCountry());
+        donor.setZipCode(request.getZipCode());
+        donor.setEmergencyContactName(request.getEmergencyContactName());
+        donor.setEmergencyContactPhone(request.getEmergencyContactPhone());
+        donor.setEmergencyContactRelationship(request.getEmergencyContactRelationship());
+        donor.setOrganTypes(request.getOrganTypes());
+        donor.setMedicalHistory(request.getMedicalHistory());
+        donor.setCurrentMedications(request.getCurrentMedications());
+        donor.setAllergies(request.getAllergies());
+        donor.setHeight(request.getHeight());
+        donor.setWeight(request.getWeight());
+        donor.setSmokingStatus(request.getSmokingStatus());
+        donor.setAlcoholConsumption(request.getAlcoholConsumption());
+        donor.setExerciseFrequency(request.getExerciseFrequency());
+        donor.setConsentGiven(true); // Set to true since they're registering
+        
+        return donor;
+    }
+    
     // Helper method to extract hospital ID from authentication
     private String getHospitalIdFromAuth(Authentication authentication) {
         CustomUserDetailsService.CustomUserPrincipal principal = 
