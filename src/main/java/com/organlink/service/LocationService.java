@@ -53,24 +53,59 @@ public class LocationService {
     public List<Map<String, String>> getStatesByCountry(String countryId) {
         System.out.println("🏛️ Fetching states for country: " + countryId);
 
-        // Convert countryId back to country name for database lookup
-        String countryName = countryId.replaceAll("_", " ");
+        // Convert countryId back to display country name and normalize case for DB lookup
+        String countryNameRaw = countryId.replaceAll("_", " ");
+        String countryName = normalizeCountryName(countryNameRaw);
         List<String> dbStates = hospitalRepository.findDistinctStatesByCountry(countryName);
-        System.out.println("Found " + dbStates.size() + " states in database: " + dbStates);
+        System.out.println("Found " + dbStates.size() + " states in database for '" + countryName + "': " + dbStates);
 
         List<Map<String, String>> states = new ArrayList<>();
         for (String stateName : dbStates) {
-            String stateId = stateName.toUpperCase().replaceAll("\\s+", "_");
-            states.add(Map.of("id", stateId, "name", stateName, "countryId", countryId));
+            String normalized = stateName == null ? "" : stateName.trim();
+            // Title-case for display
+            String displayName = capitalizeWords(normalized);
+            // Create stable ID (trim first to avoid trailing underscores)
+            String stateId = normalized.toUpperCase().replaceAll("\\s+", "_");
+            states.add(Map.of("id", stateId, "name", displayName, "countryId", countryId));
         }
 
         // If no states found, return fallback based on country
         if (states.isEmpty()) {
-            System.out.println("⚠️ No states found in database for " + countryName + ", returning fallback");
+            System.out.println("⚠️ No states found in database for '" + countryName + "', returning fallback for id '" + countryId + "'");
             return getFallbackStates(countryId);
         }
 
-        return states;
+        // Deduplicate by id to avoid duplicates due to whitespace/case differences
+        List<Map<String, String>> deduped = states.stream()
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toMap(m -> m.get("id"), m -> m, (a, b) -> a, java.util.LinkedHashMap::new),
+                        m -> new java.util.ArrayList<>(m.values())));
+
+        return deduped;
+    }
+
+    /**
+     * Normalize known country names from uppercase IDs to proper case for DB matching
+     */
+    private String normalizeCountryName(String name) {
+        String upper = name.trim().toUpperCase();
+        return switch (upper) {
+            case "INDIA" -> "India";
+            case "UNITED STATES", "US", "U.S.", "U S" -> "United States";
+            case "UNITED KINGDOM", "UK" -> "United Kingdom";
+            case "UAE", "UNITED ARAB EMIRATES" -> "United Arab Emirates";
+            default -> capitalizeWords(name);
+        };
+    }
+
+    private String capitalizeWords(String input) {
+        String[] parts = input.toLowerCase().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (p.isEmpty()) continue;
+            sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1)).append(" ");
+        }
+        return sb.toString().trim();
     }
 
     private List<Map<String, String>> getFallbackStates(String countryId) {

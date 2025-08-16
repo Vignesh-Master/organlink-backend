@@ -11,11 +11,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Location controller for country, state, city, and hospital data
- * Provides location hierarchy for frontend forms
+ * Provides normalized country/state/city/hospital location data for dropdowns.
+ * Ensures deduplicated states per country and cities per state, so the frontend
+ * does not show duplicated Tamil Nadu etc. even when multiple cities exist.
  */
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/locations")
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8080"})
 public class LocationController {
 
@@ -23,103 +24,59 @@ public class LocationController {
     private LocationService locationService;
 
     /**
-     * Get all countries
+     * List countries present in DB (or default fallback)
      */
-    @GetMapping("/locations/countries")
+    @GetMapping("/countries")
     public ResponseEntity<ApiResponse<List<Map<String, String>>>> getCountries() {
-        try {
-            List<Map<String, String>> countries = locationService.getCountries();
-            return ResponseEntity.ok(ApiResponse.success("Countries retrieved", countries));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to retrieve countries", e.getMessage()));
-        }
+        List<Map<String, String>> countries = locationService.getCountries();
+        return ResponseEntity.ok(ApiResponse.success("Countries retrieved", countries));
     }
 
     /**
-     * Get states by country
+     * List states for a given country. countryId is an uppercase/underscore ID like INDIA or UNITED_STATES
      */
-    @GetMapping("/locations/states")
-    public ResponseEntity<ApiResponse<List<Map<String, String>>>> getStates(
-            @RequestParam(required = false) String countryId) {
-        try {
-            if (countryId == null || countryId.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("Country ID is required", "countryId parameter is missing"));
-            }
-            
-            List<Map<String, String>> states = locationService.getStatesByCountry(countryId);
-            return ResponseEntity.ok(ApiResponse.success("States retrieved", states));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to retrieve states", e.getMessage()));
-        }
+    @GetMapping("/states")
+    public ResponseEntity<ApiResponse<List<Map<String, String>>>> getStates(@RequestParam("countryId") String countryId) {
+        List<Map<String, String>> states = locationService.getStatesByCountry(countryId);
+        // Deduplicate by id in case DB returns duplicates
+        List<Map<String, String>> deduped = states.stream()
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toMap(m -> m.get("id"), m -> m, (a, b) -> a, java.util.LinkedHashMap::new),
+                        m -> new java.util.ArrayList<>(m.values())));
+        return ResponseEntity.ok(ApiResponse.success("States retrieved", deduped));
     }
 
     /**
-     * Get cities by state (Hospital-specific endpoint)
+     * List cities for a given stateId (e.g., TAMIL_NADU, KA, etc.)
      */
-    @GetMapping("/hospital/cities-by-state")
-    public ResponseEntity<ApiResponse<List<String>>> getCitiesByState(
-            @RequestParam String stateId) {
-        try {
-            if (stateId == null || stateId.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("State ID is required", "stateId parameter is missing"));
-            }
-            
-            List<String> cities = locationService.getCitiesByState(stateId);
-            return ResponseEntity.ok(ApiResponse.success("Cities retrieved", cities));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to retrieve cities", e.getMessage()));
-        }
+    @GetMapping("/cities")
+    public ResponseEntity<ApiResponse<List<String>>> getCities(@RequestParam("stateId") String stateId) {
+        List<String> cities = locationService.getCitiesByState(stateId);
+        // Deduplicate
+        List<String> deduped = cities.stream().distinct().toList();
+        return ResponseEntity.ok(ApiResponse.success("Cities retrieved", deduped));
     }
 
     /**
-     * Get hospitals by city and state (Hospital-specific endpoint)
+     * Legacy compatibility route used by the current frontend:
+     * GET /api/v1/hospital/cities-by-state?stateId=...
+     * Make this public and delegate to the same service to avoid 401 on login.
      */
-    @GetMapping("/hospital/hospitals-by-city")
-    public ResponseEntity<ApiResponse<List<Hospital>>> getHospitalsByCity(
-            @RequestParam String city,
-            @RequestParam String stateId) {
-        try {
-            System.out.println("🏥 Hospital lookup request:");
-            System.out.println("City: " + city);
-            System.out.println("StateId: " + stateId);
-
-            if (city == null || city.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("City is required", "city parameter is missing"));
-            }
-
-            if (stateId == null || stateId.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("State ID is required", "stateId parameter is missing"));
-            }
-
-            List<Hospital> hospitals = locationService.getHospitalsByCity(city, stateId);
-            System.out.println("Found " + hospitals.size() + " hospitals");
-
-            return ResponseEntity.ok(ApiResponse.success("Hospitals retrieved", hospitals));
-        } catch (Exception e) {
-            System.out.println("❌ Hospital lookup failed: " + e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to retrieve hospitals", e.getMessage()));
-        }
+    @GetMapping(path = "/api/v1/hospital/cities-by-state")
+    public ResponseEntity<ApiResponse<List<String>>> getCitiesLegacy(@RequestParam("stateId") String stateId) {
+        List<String> cities = locationService.getCitiesByState(stateId);
+        List<String> deduped = cities.stream().distinct().toList();
+        return ResponseEntity.ok(ApiResponse.success("Cities retrieved", deduped));
     }
 
     /**
-     * Get all hospitals (for admin purposes)
+     * List hospitals for a given city and state
      */
-    @GetMapping("/locations/hospitals")
-    public ResponseEntity<ApiResponse<List<Hospital>>> getAllHospitals() {
-        try {
-            List<Hospital> hospitals = locationService.getAllHospitals();
-            return ResponseEntity.ok(ApiResponse.success("All hospitals retrieved", hospitals));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to retrieve hospitals", e.getMessage()));
-        }
+    @GetMapping("/hospitals")
+    public ResponseEntity<ApiResponse<List<Hospital>>> getHospitals(
+            @RequestParam("city") String city,
+            @RequestParam("stateId") String stateId) {
+        List<Hospital> hospitals = locationService.getHospitalsByCity(city, stateId);
+        return ResponseEntity.ok(ApiResponse.success("Hospitals retrieved", hospitals));
     }
 }

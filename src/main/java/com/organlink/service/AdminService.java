@@ -184,7 +184,19 @@ public class AdminService {
         if (!hospitalRepository.existsById(id)) {
             throw new RuntimeException("Hospital not found with id: " + id);
         }
-        hospitalRepository.deleteById(id);
+        try {
+            hospitalRepository.deleteById(id);
+        } catch (Exception ex) {
+            // Fallback: soft-delete by marking INACTIVE if hard delete fails due to constraints
+            Optional<Hospital> hospitalOpt = hospitalRepository.findById(id);
+            if (hospitalOpt.isPresent()) {
+                Hospital h = hospitalOpt.get();
+                h.setStatus(HospitalStatus.INACTIVE);
+                hospitalRepository.save(h);
+            } else {
+                throw ex;
+            }
+        }
     }
 
     /**

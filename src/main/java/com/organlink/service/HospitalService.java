@@ -25,6 +25,11 @@ import java.util.Optional;
 @Transactional
 public class HospitalService {
 
+    // Expose repositories for JSON-based controller mapping (minimal surface)
+    public HospitalRepository getHospitalRepository() { return hospitalRepository; }
+    public DonorRepository getDonorRepository() { return donorRepository; }
+    public PatientRepository getPatientRepository() { return patientRepository; }
+
     @Autowired
     private HospitalRepository hospitalRepository;
 
@@ -88,12 +93,21 @@ public class HospitalService {
         
         // Recent activity
         // Get recent registrations (simplified)
+        java.time.LocalDateTime epoch = java.time.LocalDateTime.MIN;
         List<Donor> recentDonors = donorRepository.findByHospitalId(hospital.getId()).stream()
-                .sorted((d1, d2) -> d2.getCreatedAt().compareTo(d1.getCreatedAt()))
+                .sorted((d1, d2) -> {
+                    java.time.LocalDateTime t1 = d1.getCreatedAt() != null ? d1.getCreatedAt() : epoch;
+                    java.time.LocalDateTime t2 = d2.getCreatedAt() != null ? d2.getCreatedAt() : epoch;
+                    return t2.compareTo(t1);
+                })
                 .limit(5)
                 .collect(java.util.stream.Collectors.toList());
         List<Patient> recentPatients = patientRepository.findByHospitalId(hospital.getId()).stream()
-                .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
+                .sorted((p1, p2) -> {
+                    java.time.LocalDateTime t1 = p1.getCreatedAt() != null ? p1.getCreatedAt() : epoch;
+                    java.time.LocalDateTime t2 = p2.getCreatedAt() != null ? p2.getCreatedAt() : epoch;
+                    return t2.compareTo(t1);
+                })
                 .limit(5)
                 .collect(java.util.stream.Collectors.toList());
 
@@ -382,6 +396,10 @@ public class HospitalService {
         return hospitalId + "-PAT-" + String.format("%04d", count);
     }
 
+    public Double calculatePriorityScorePublic(Patient patient) {
+        return calculatePriorityScore(patient);
+    }
+
     private Double calculatePriorityScore(Patient patient) {
         double score = 0.0;
         
@@ -414,6 +432,10 @@ public class HospitalService {
         return score;
     }
     
+    public void createSignatureRecordPublic(String ipfsHash, String docType, Long entityId, String entityType, Hospital hospital) {
+        createSignatureRecord(ipfsHash, docType, entityId, entityType, hospital);
+    }
+
     private void createSignatureRecord(String ipfsHash, String docType, Long entityId, String entityType, Hospital hospital) {
         SignatureRecord record = new SignatureRecord();
         record.setIpfsHash(ipfsHash);
@@ -428,6 +450,10 @@ public class HospitalService {
     /**
      * Register donor on blockchain asynchronously
      */
+    public void registerDonorOnBlockchainPublic(Donor donor, String ipfsHash) {
+        registerDonorOnBlockchain(donor, ipfsHash);
+    }
+
     private void registerDonorOnBlockchain(Donor donor, String ipfsHash) {
         try {
             logger.info("🔗 Registering donor {} on blockchain...", donor.getDonorId());
@@ -457,6 +483,10 @@ public class HospitalService {
     /**
      * Register patient on blockchain asynchronously
      */
+    public void registerPatientOnBlockchainPublic(Patient patient, String ipfsHash) {
+        registerPatientOnBlockchain(patient, ipfsHash);
+    }
+
     private void registerPatientOnBlockchain(Patient patient, String ipfsHash) {
         try {
             logger.info("🔗 Registering patient {} on blockchain...", patient.getPatientId());

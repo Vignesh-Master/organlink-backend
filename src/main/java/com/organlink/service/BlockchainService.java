@@ -4,31 +4,16 @@ import com.organlink.entity.*;
 import com.organlink.repository.BlockchainTransactionRepository;
 import com.organlink.repository.SignatureRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.http.HttpService;
 import org.web3j.tx.gas.DefaultGasProvider;
 
-import jakarta.annotation.PostConstruct;
 import java.math.BigInteger;
 
 @Service
 public class BlockchainService {
-
-    @Value("${blockchain.ethereum.network-url}")
-    private String networkUrl;
-
-    @Value("${blockchain.ethereum.private-key}")
-    private String privateKey;
-
-    @Value("${blockchain.contracts.signature-verification-address:}")
-    private String signatureContractAddress;
-
-    @Value("${blockchain.contracts.policy-voting-address:}")
-    private String policyContractAddress;
 
     @Autowired
     private BlockchainTransactionRepository transactionRepository;
@@ -36,15 +21,15 @@ public class BlockchainService {
     @Autowired
     private SignatureRecordRepository signatureRecordRepository;
 
+    // Reuse configured beans from BlockchainConfig
+    @Autowired
     private Web3j web3j;
+
+    @Autowired
     private Credentials credentials;
 
-    @PostConstruct
-    public void init() {
-        this.web3j = Web3j.build(new HttpService(networkUrl));
-        this.credentials = Credentials.create(privateKey);
-        System.out.println("✅ BlockchainService initialized. Connected to: " + networkUrl);
-    }
+    @Autowired(required = false)
+    private DefaultGasProvider defaultGasProvider;
 
     @Async
     public void recordDonorRegistration(Donor donor) {
